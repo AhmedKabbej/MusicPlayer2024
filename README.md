@@ -1,6 +1,10 @@
-# Lecteur Musical
+# Lecteur Musical 🎶
 
 Lecteur de playlist interactif avec une esthétique rétro-luxe. **100% vanilla** — pas de Three.js, pas de WebGL. Toute la 3D est simulée en pur CSS.
+
+## Contexte du projet
+
+Ce projet est né lors d'un **workshop encadré par Alexis Séjourné en 2024**. À l'origine un exercice de carousel en CSS, j'ai repris un ancien fork Git après le workshop pour le transformer en un véritable **lecteur musical nostalgique** complet. J'y ai incorporé progressivement de nombreuses fonctionnalités : détection automatique de métadonnées via l'API MusicBrainz, un mode réactif au son avec analyse audio en temps réel, des effets visuels rétro (lava blobs, grain pellicule, TV static), un système d'ajout de piste par drag & drop, et une esthétique soignée inspirée des lecteurs physiques d'époque — le tout sans aucune librairie 3D.
 
 ## La "fausse" 3D
 
@@ -54,3 +58,7 @@ Exemples qui fonctionnent :
 ## Stack
 
 HTML · CSS · JavaScript vanilla · GSAP (animations + Draggable) · Web Audio API (mode réactif) · MusicBrainz API (détection métadonnées)
+
+---
+
+> **Fun fact** — Le projet était tellement ancien que quand je l'ai redécouvert, j'utilisais encore `gsap-trial` parce qu'à l'époque SplitText, Draggable & co. étaient **payants**. Depuis avril 2025, GSAP est devenu 100 % gratuit. J'ai pris un sacré coup de vieux. 👴

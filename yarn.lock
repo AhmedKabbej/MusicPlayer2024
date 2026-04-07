@@ -48,11 +48,6 @@ esbuild@^0.25.0:
     "@esbuild/win32-ia32" "0.25.1"
     "@esbuild/win32-x64" "0.25.1"
 
-gsap-trial@^3.12.7:
-  version "3.12.7"
-  resolved "https://registry.npmjs.org/gsap-trial/-/gsap-trial-3.12.7.tgz"
-  integrity sha512-VR6064JQ4RM2pUll+qBB7mgNtTkKGBSPRSNRIibYU66ZA9fEFkUIWhAb37/h1oGVu1HxPYLqsxFUOaL7PQVJ1w==
-
 gsap@^3.12.7:
   version "3.12.7"
   resolved "https://registry.npmjs.org/gsap/-/gsap-3.12.7.tgz"

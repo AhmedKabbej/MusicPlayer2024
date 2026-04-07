@@ -1,5 +1,5 @@
 import gsap from "gsap";
-import { SplitText } from "gsap-trial/SplitText";
+import { SplitText } from "gsap/SplitText";
 import { Draggable } from "gsap/Draggable";
 import {
   initAudioAnalyser,
