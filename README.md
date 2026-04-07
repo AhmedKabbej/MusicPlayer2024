@@ -1,4 +1,4 @@
-# Lecteur Musical 🎶
+# Lecteur Musical 
 
 Lecteur de playlist interactif avec une esthétique rétro-luxe. **100% vanilla** — pas de Three.js, pas de WebGL. Toute la 3D est simulée en pur CSS.
 
