@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lecteur de Playlist</title>
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+    <link rel="stylesheet" href="/src/button.css">
+    <link rel="stylesheet" href="/src/style.css">
+    
+    
+</head>
+<body>
+    <!-- SVG filters -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0">
+      <defs>
+        <filter id="goo">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="30" result="blur" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 60 -7" result="goo" />
+          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+        </filter>
+        <filter id="grain-fine" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" seed="2" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <filter id="grain-coarse" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="2" stitchTiles="stitch" seed="7" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <filter id="paper-texture" x="0%" y="0%" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.65 0.55" numOctaves="5" stitchTiles="stitch" seed="3" result="noise" />
+          <feColorMatrix in="noise" type="saturate" values="0" result="gray" />
+          <feComponentTransfer in="gray" result="crumple">
+            <feFuncR type="linear" slope="0.12" intercept="0.04" />
+            <feFuncG type="linear" slope="0.11" intercept="0.035" />
+            <feFuncB type="linear" slope="0.10" intercept="0.03" />
+          </feComponentTransfer>
+          <feBlend in="crumple" in2="SourceGraphic" mode="screen" />
+        </filter>
+      </defs>
+    </svg>
+    <div class="paper-bg"></div>
+    <div class="grain-overlay grain-fine"></div>
+    <div class="grain-overlay grain-coarse"></div>
+    <div class="vignette-overlay"></div>
+    <div id="lava-bg" class="lava-bg"></div>
+    <h1>Lecteur de Playlist</h1>
+
+    <figure class="icon-cards">
+        <div class="icon-cards__content">
+          <div class="icon-cards__item"><img src="public/Thestrokescover.jpg" alt="The Strokes"></div>
+          <div class="icon-cards__item"><img src="public/Toploadercover.jpg" alt="Toploader"></div>
+          <div class="icon-cards__item"><img src="public/LPcover.jpg" alt="LP"></div>
+          <div class="icon-cards__item"><img src="public/Harrystylecover.jpg" alt="Harry Styles"></div>
+          <div class="icon-cards__item"><img src="public/Pharrellwilliamscover.jpg" alt="Pharrell Williams"></div>
+          <div class="icon-cards__item"><img src="public/StromaeCover.jpg" alt="Stromae"></div>
+        </div>
+      </figure>
+
+    <h2 id="track-title">Titre du morceau</h2>
+    <p class="drag-hint">Glisser sur les cartes pour naviguer</p>
+    <ul id="playlist"></ul>
+
+    <div class="gapgutton">
+        <button class="btn-player btn-prev" role="button" id="prev">
+          <span class="btn-fill"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4"></polygon><line x1="5" y1="4" x2="5" y2="20"></line></svg>
+        </button>
+        <button class="btn-player btn-play" role="button" id="play">
+          <span class="btn-fill"></span>
+          <svg class="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21"></polygon></svg>
+          <svg class="icon-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="display:none"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>
+        </button>
+        <button class="btn-player btn-next" role="button" id="next">
+          <span class="btn-fill"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20"></polygon><line x1="19" y1="4" x2="19" y2="20"></line></svg>
+        </button>
+    </div>
+
+   
+
+      
+      <!-- <div class="checkbox">
+        <input class="d-none" id="toggle-animation" type="checkbox" checked />
+        <label class="checkbox__checkbox" for="toggle-animation"></label>
+        <label class="checkbox__label" for="toggle-animation">Toggle animation</label>
+      </div> -->
+      
+
+    
+      
+    <!-- Popup overlay -->
+    <div id="popup-overlay" class="popup-overlay">
+      <div class="popup-panel">
+        <button id="popup-close" class="popup-close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <!-- Left: big cover image -->
+        <div class="popup-visual">
+          <img id="popup-img" class="popup-img" src="" alt="">
+          <div class="popup-img-grain"></div>
+        </div>
+        <!-- Right: artist info -->
+        <div class="popup-content">
+          <span class="popup-label" id="popup-label">ARTIST</span>
+          <h2 class="popup-artist" id="popup-artist"></h2>
+          <div class="popup-divider"></div>
+          <h3 class="popup-album" id="popup-album"></h3>
+          <p class="popup-desc" id="popup-desc"></p>
+          <button class="popup-listen-btn" id="popup-listen">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21"></polygon></svg>
+            <span>Écouter</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add track modal -->
+    <div id="add-track-overlay" class="add-track-overlay">
+      <div class="add-track-panel">
+        <button id="add-track-close" class="popup-close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <h2 class="add-track-title">Ajouter un morceau</h2>
+        <p class="add-track-subtitle">Limité à 1 ajout • Image carrée obligatoire</p>
+        <div class="add-track-dropzones">
+          <div class="dropzone" id="dropzone-mp3" data-accept="audio">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <span class="dropzone-label">Déposer un fichier MP3</span>
+            <span class="dropzone-file" id="mp3-filename"></span>
+            <input type="file" accept="audio/mpeg,audio/mp3" id="input-mp3" hidden>
+          </div>
+          <div class="dropzone" id="dropzone-img" data-accept="image">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            <span class="dropzone-label">Déposer une image carrée</span>
+            <span class="dropzone-sublabel">Format 1:1 uniquement</span>
+            <span class="dropzone-file" id="img-filename"></span>
+            <input type="file" accept="image/*" id="input-img" hidden>
+          </div>
+        </div>
+        <div class="add-track-field">
+          <label for="input-title">Titre</label>
+          <input type="text" id="input-title" placeholder="Nom du morceau" maxlength="80">
+          <span id="api-lookup-status" class="api-lookup-status"></span>
+        </div>
+        <div class="add-track-actions">
+          <span class="add-track-error" id="add-track-error"></span>
+          <button class="add-track-submit" id="add-track-submit" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Ajouter au carousel</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reactive mode toggle -->
+    <button id="reactive-toggle" class="reactive-toggle" title="Mode sons réactifs">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10s3-3 5-3 4 6 6 6 5-3 5-3"/><path d="M2 17s3-3 5-3 4 6 6 6 5-3 5-3"/></svg>
+    </button>
+    <span id="reactive-indicator" class="reactive-indicator">RÉACTIF ON</span>
+
+    <!-- Add track floating button -->
+    <button id="add-track-btn" class="add-track-btn" title="Ajouter un morceau">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+
+    <!-- Sound wave visualizer bottom-left -->
+    <div id="sound-wave" class="sound-wave">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+    
+</body>
+</html>
