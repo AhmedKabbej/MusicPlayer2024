@@ -80,6 +80,7 @@ h1 {
   letter-spacing: 0.05em;
   opacity: 0.6;
   margin: 0 0 10px 0;
+  text-align: center;
 }
 
 #track-title {
@@ -189,7 +190,6 @@ h1 {
 html,
 body {
   height: 100%;
-  text-align: center;
   background-color: #030303;
   background-image:
     radial-gradient(ellipse at 50% 40%, rgba(12, 10, 8, 0.2) 0%, transparent 70%),
