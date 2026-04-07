@@ -253,7 +253,7 @@ body {
     z-index: 50;
   }
   .lava-bg {
-    filter: url(#goo) blur(28px);
+    filter: url(#goo) blur(38px);
   }
 }
 

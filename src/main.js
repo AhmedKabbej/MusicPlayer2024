@@ -23,12 +23,12 @@ class MusicPlayer {
 
     //boucle for each
     this.tracks = [
-      { id: 1, title: "The Strokes - Someday", url: "The Strokes_Someday.mp3", img: "public/Thestrokescover.jpg", artist: "The Strokes", album: "Is This It (2001)", color: "#FDD94F", desc: "Groupe emblématique du rock indé new-yorkais. 'Someday' est un hymne nostalgique porté par des guitares incisives et la voix nonchalante de Julian Casablancas." },
-      { id: 2, title: "Toploader - Dancing in the Moonlight", url: "Toploader - Dancing in the Moonlight.mp3", img: "public/Toploadercover.jpg", artist: "Toploader", album: "Onka's Big Moka (1999)", color: "#4A90D9", desc: "Reprise feel-good devenue un classique. Cette version lumineuse de Toploader capture l'euphorie d'une nuit parfaite avec des mélodies irrésistibles." },
-      { id: 3, title: "LP - Other People", url: "LP - Other People.mp3", img: "public/LPcover.jpg", artist: "LP", album: "Lost on You (2016)", color: "#888888", desc: "Laura Pergolizzi, alias LP, délivre une performance vocale intense. 'Other People' mêle folk et pop avec une émotion brute et un sifflement signature." },
-      { id: 4, title: "Harry Styles - Sign of the Times", url: "Harry Styles - Sign of the Times.mp3", img: "public/Harrystylecover.jpg", artist: "Harry Styles", album: "Harry Styles (2017)", color: "#7BA7CC", desc: "Premier single solo de Harry Styles, une ballade rock épique et émouvante qui marque sa transition artistique avec une montée instrumentale grandiose." },
-      { id: 5, title: "Pharrell Williams - Happy", url: "Pharrell Williams-Happy.mp3", img: "public/Pharrellwilliamscover.jpg", artist: "Pharrell Williams", album: "G I R L (2014)", color: "#F7E04B", desc: "Tube planétaire au groove contagieux. 'Happy' est une célébration pure de la joie, propulsée par la voix solaire de Pharrell et des claps entêtants." },
-      { id: 6, title: "Stromae - Merci", url: "Stromae - merci.mp3", img: "public/StromaeCover.jpg", artist: "Stromae", album : "Racine carrée (2013)", color : "#F77E7E", desc : "Stromae propose un album mêlant électro, hip-hop et chanson française, avec des thèmes profonds comme l’identité, la solitude et les relations humaines, porté par une production originale et marquante." }
+      { id: 1, title: "The Strokes - Someday", url: "/The Strokes_Someday.mp3", img: "/Thestrokescover.jpg", artist: "The Strokes", album: "Is This It (2001)", color: "#FDD94F", desc: "Groupe emblématique du rock indé new-yorkais. 'Someday' est un hymne nostalgique porté par des guitares incisives et la voix nonchalante de Julian Casablancas." },
+      { id: 2, title: "Toploader - Dancing in the Moonlight", url: "/Toploader - Dancing in the Moonlight.mp3", img: "/Toploadercover.jpg", artist: "Toploader", album: "Onka's Big Moka (1999)", color: "#4A90D9", desc: "Reprise feel-good devenue un classique. Cette version lumineuse de Toploader capture l'euphorie d'une nuit parfaite avec des mélodies irrésistibles." },
+      { id: 3, title: "LP - Other People", url: "/LP - Other People.mp3", img: "/LPcover.jpg", artist: "LP", album: "Lost on You (2016)", color: "#888888", desc: "Laura Pergolizzi, alias LP, délivre une performance vocale intense. 'Other People' mêle folk et pop avec une émotion brute et un sifflement signature." },
+      { id: 4, title: "Harry Styles - Sign of the Times", url: "/Harry Styles - Sign of the Times.mp3", img: "/Harrystylecover.jpg", artist: "Harry Styles", album: "Harry Styles (2017)", color: "#7BA7CC", desc: "Premier single solo de Harry Styles, une ballade rock épique et émouvante qui marque sa transition artistique avec une montée instrumentale grandiose." },
+      { id: 5, title: "Pharrell Williams - Happy", url: "/Pharrell Williams-Happy.mp3", img: "/Pharrellwilliamscover.jpg", artist: "Pharrell Williams", album: "G I R L (2014)", color: "#F7E04B", desc: "Tube planétaire au groove contagieux. 'Happy' est une célébration pure de la joie, propulsée par la voix solaire de Pharrell et des claps entêtants." },
+      { id: 6, title: "Stromae - Merci", url: "/Stromae - merci.mp3", img: "/StromaeCover.jpg", artist: "Stromae", album : "Racine carrée (2013)", color : "#F77E7E", desc : "Stromae propose un album mêlant électro, hip-hop et chanson française, avec des thèmes profonds comme l’identité, la solitude et les relations humaines, porté par une production originale et marquante." }
     ];
 
     this.tracks.forEach(track => {
@@ -108,9 +108,17 @@ class MusicPlayer {
 
   handleSplitTrack() {
     const isMobile = window.innerWidth <= 600;
-    var splitParent = new SplitText('#track-title', { types: 'lines', linesClass: 'split-parent' })
-    var typeSplit = new SplitText('#track-title', { types: 'chars', tagName: 'span' })
-    gsap.from(typeSplit.chars, {
+
+    // Revert previous splits to restore clean DOM
+    if (this._splitParent) this._splitParent.revert();
+    if (this._typeSplit) this._typeSplit.revert();
+
+    // Update title text before splitting
+    this.trackTitle.textContent = this.tracks[this.currentTrackIndex].title;
+
+    this._splitParent = new SplitText('#track-title', { types: 'lines', linesClass: 'split-parent' })
+    this._typeSplit = new SplitText('#track-title', { types: 'chars', tagName: 'span' })
+    gsap.from(this._typeSplit.chars, {
       y: '100%',
       opacity: 0,
       rotationZ: 4,
@@ -616,7 +624,7 @@ class MusicPlayer {
     this.blobBaseSizes = [];
 
     this.lavaBlobs.forEach((blob, i) => {
-      const size = isMobile ? (80 + Math.random() * 100) : (140 + Math.random() * 220);
+      const size = isMobile ? (120 + Math.random() * 120) : (140 + Math.random() * 220);
       this.blobBaseSizes[i] = size;
       gsap.set(blob, { width: size, height: size });
 
@@ -652,7 +660,20 @@ class MusicPlayer {
         delay: i * 0.25
       });
 
-      this.lavaTweens.push(moveTween, scaleTween);
+      // Organic border-radius morphing (always active, even without reactive mode)
+      const morphTween = gsap.to(blob, {
+        borderRadius: () => {
+          const r = Array.from({ length: 8 }, () => 25 + Math.random() * 35);
+          return `${r[0]}% ${r[1]}% ${r[2]}% ${r[3]}% / ${r[4]}% ${r[5]}% ${r[6]}% ${r[7]}%`;
+        },
+        duration: () => 3 + Math.random() * 3,
+        ease: 'sine.inOut',
+        repeat: -1,
+        yoyo: true,
+        delay: i * 0.2
+      });
+
+      this.lavaTweens.push(moveTween, scaleTween, morphTween);
     });
   }
 
