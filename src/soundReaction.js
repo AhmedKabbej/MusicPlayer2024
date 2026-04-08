@@ -1,6 +1,7 @@
-// ── Sound Reaction Module ──
-// Audio-reactive blob visualizations using Web Audio API
+// ── Module Sound Reaction ──
+// animation des blobs en réaction au son via Web Audio API
 
+// branche l'audio du player sur un AnalyserNode pour lire les fréquences
 export function initAudioAnalyser(player) {
   if (player.audioCtx) return;
   player.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -13,10 +14,11 @@ export function initAudioAnalyser(player) {
   player.freqData = new Uint8Array(player.analyser.frequencyBinCount);
 }
 
+// boucle principale : lit les fréquences et anime chaque blob
 export function startReactiveLoop(player) {
   if (player.reactiveRAF) cancelAnimationFrame(player.reactiveRAF);
 
-  // Per-blob personality
+  // personnalité aléatoire de chaque blob (phase, vitesse, rayons)
   if (!player.blobPhases) {
     player.blobPhases = player.lavaBlobs.map(() => ({
       phaseX: Math.random() * Math.PI * 2,
@@ -40,11 +42,13 @@ export function startReactiveLoop(player) {
 
   const binCount = player.freqData.length;
 
+  // découpage du spectre en bandes de fréquence
   const subBassEnd = Math.floor(binCount * 0.04);
   const bassEnd    = Math.floor(binCount * 0.12);
   const midEnd     = Math.floor(binCount * 0.4);
   const trebleEnd  = binCount;
 
+  // chaque blob réagit à une zone du spectre
   const blobZones = player.lavaBlobs.map((_, i) => {
     if (i < 2) return { lo: 0, hi: bassEnd };
     if (i < 4) return { lo: subBassEnd, hi: midEnd };
@@ -61,7 +65,7 @@ export function startReactiveLoop(player) {
     player.analyser.getByteFrequencyData(player.freqData);
     time += 0.018;
 
-    // ── Global band energies ──
+    // énergies par bande (sub-bass, bass, mids, treble)
     let subBassSum = 0, bassSum = 0, midSum = 0, trebleSum = 0;
     for (let i = 0; i < subBassEnd; i++) subBassSum += player.freqData[i];
     for (let i = subBassEnd; i < bassEnd; i++) bassSum += player.freqData[i];
@@ -75,7 +79,7 @@ export function startReactiveLoop(player) {
 
     const globalEnergy = subBass * 0.3 + bass * 0.3 + mids * 0.2 + treble * 0.2;
 
-    // Global transient (kick detection) — intense catches smaller hits
+    // détection de kick (transitoire global)
     const globalDelta = Math.max(0, globalEnergy - prevGlobal);
     const kickThreshold = player.reactiveMode === 'intense' ? 0.02 : 0.06;
     const kickMult = player.reactiveMode === 'intense' ? 7 : 4;
@@ -87,12 +91,12 @@ export function startReactiveLoop(player) {
       const phase = player.blobPhases[i];
       const base = (player.blobBaseSizes && player.blobBaseSizes[i]) || 150;
 
-      // Per-blob zone energy
+      // énergie propre au blob dans sa zone de fréquence
       let bSum = 0;
       for (let j = zone.lo; j < zone.hi; j++) bSum += player.freqData[j];
       const rawE = bSum / (zone.hi - zone.lo) / 255;
 
-      // Attack/release
+      // lissage attaque/release (soft = doux, intense = nerveux)
       const isSoft = player.reactiveMode === 'soft';
       const attack = isSoft ? 0.2 : 0.88;
       const release = isSoft ? 0.04 : 0.18;
@@ -100,12 +104,12 @@ export function startReactiveLoop(player) {
       player.blobSmoothed[i] += (rawE - player.blobSmoothed[i]) * lerpRate;
       const energy = player.blobSmoothed[i];
 
-      // Transient detection — intense catches almost every sound
+      // détection de transitoire par blob
       const delta = Math.max(0, energy - player.blobPrevEnergy[i]);
       const transient = delta > (isSoft ? 0.03 : 0.008) ? delta * (isSoft ? 1.5 : 8) : 0;
       player.blobPrevEnergy[i] = energy;
 
-      // Cross-blob bleed
+      // mélange avec les blobs voisins pour un effet plus organique
       const prev = player.blobSmoothed[(i - 1 + player.lavaBlobs.length) % player.lavaBlobs.length];
       const next = player.blobSmoothed[(i + 1) % player.lavaBlobs.length];
       const blended = energy * 0.55 + prev * 0.22 + next * 0.23;
@@ -117,7 +121,7 @@ export function startReactiveLoop(player) {
       let scaleX, scaleY, rot, borderRadius, w, h, dx, dy, opacity;
 
       if (isSoft) {
-        // ── SOFT MODE: gentle sway, pointy on treble ──
+        // MODE DOUX : ondulation légère, pointes sur les aigus
         const sin1 = Math.sin(time * phase.speedX * 0.7 + phase.phaseX);
         const sin2 = Math.sin(time * phase.speedY * 0.5 + phase.phaseY);
         scaleX = 1 + blended * 0.2 + sin1 * 0.05 + globalEnergy * 0.08 + treble * 0.15;
@@ -149,7 +153,7 @@ export function startReactiveLoop(player) {
           + globalEnergy * 0.08;
 
       } else {
-        // ── INTENSE MODE: smaller blobs, hyper-reactive to every sound ──
+        // MODE INTENSE : blobs plus petits, hyper-réactifs à chaque son
         const intenseBase = base * 0.6;
 
         const scaleBoost = isBassBlob ? 1.6 : 1.0;

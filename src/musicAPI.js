@@ -1,34 +1,27 @@
-// ── MusicBrainz API Module ──
-// Auto-detect track metadata from filename using the free MusicBrainz API
-// Docs: https://musicbrainz.org/doc/MusicBrainz_API
+// ── Module MusicBrainz API ──
+// détecte automatiquement artiste/album/genre depuis le nom du fichier MP3
+// doc : https://musicbrainz.org/doc/MusicBrainz_API
 
 const MB_API = 'https://musicbrainz.org/ws/2';
 const HEADERS = {
   'Accept': 'application/json',
 };
 
-/**
- * Parse an MP3 filename to extract artist and track name.
- * Supports formats like:
- *   "Artist - Title.mp3"
- *   "Artist_Title.mp3"
- *   "Artist - Title (feat. X).mp3"
- *   "Title.mp3" (artist unknown)
- */
+// parse le nom du fichier pour en extraire artiste + titre
+// supporte "Artiste - Titre.mp3", "Artiste_Titre.mp3", ou juste "Titre.mp3"
 function parseFilename(filename) {
-  // Remove extension
   let name = filename.replace(/\.[^.]+$/, '');
 
-  // Try "Artist - Title" format (most common)
+  // format "Artiste - Titre" (le plus courant)
   const dashMatch = name.match(/^(.+?)\s*[-–—]\s*(.+)$/);
   if (dashMatch) {
     return {
       artist: dashMatch[1].trim(),
-      track: dashMatch[2].trim().replace(/\s*\(.*\)$/, ''), // Remove (feat. X) etc.
+      track: dashMatch[2].trim().replace(/\s*\(.*\)$/, ''),
     };
   }
 
-  // Try "Artist_Title" format
+  // format "Artiste_Titre"
   const underscoreMatch = name.match(/^(.+?)_(.+)$/);
   if (underscoreMatch) {
     return {
@@ -37,19 +30,16 @@ function parseFilename(filename) {
     };
   }
 
-  // Fallback: just the title
+  // fallback : juste le titre
   return { artist: '', track: name.trim() };
 }
 
-/**
- * Search MusicBrainz for a recording matching artist + track name.
- * Returns metadata object or null if not found.
- */
+// cherche un enregistrement sur MusicBrainz et renvoie les métadonnées ou null
 export async function lookupTrack(filename) {
   const { artist, track } = parseFilename(filename);
   if (!track) return null;
 
-  // Build Lucene query
+  // requête Lucene sur l'API
   let query = `recording:"${encodeURIComponent(track)}"`;
   if (artist) {
     query += ` AND artist:"${encodeURIComponent(artist)}"`;
@@ -65,7 +55,7 @@ export async function lookupTrack(filename) {
     const recordings = data.recordings;
     if (!recordings || recordings.length === 0) return null;
 
-    // Pick the best match (first result with a release)
+    // on prend le 1er résultat qui a un album (release)
     const best = recordings.find(r => r.releases && r.releases.length > 0) || recordings[0];
 
     const artistName = best['artist-credit']?.[0]?.name || artist || 'Artiste inconnu';
@@ -77,7 +67,7 @@ export async function lookupTrack(filename) {
       ? (releaseDate ? `${albumTitle} (${releaseDate})` : albumTitle)
       : 'Single';
 
-    // Try to build a description from available data
+    // on construit une description lisible avec les infos dispo
     const tags = best.tags?.slice(0, 3).map(t => t.name).join(', ') || '';
     const duration = best.length
       ? `${Math.floor(best.length / 60000)}:${String(Math.floor((best.length % 60000) / 1000)).padStart(2, '0')}`
@@ -89,7 +79,7 @@ export async function lookupTrack(filename) {
     if (tags) desc += ` Genre : ${tags}.`;
     if (duration) desc += ` Durée : ${duration}.`;
 
-    // Build the formatted title "Artist - Track"
+    // titre formaté "Artiste - Titre" pour l'affichage
     const formattedTitle = `${artistName} - ${trackTitle}`;
 
     return {

@@ -1,14 +1,52 @@
-// ── Add Track + MusicBrainz API Recognition ──
-// Handles the "+" button modal: MP3 & image drop zones, MusicBrainz auto-detection,
-// form validation, and track submission.
+// ── Modale ajout de piste (bouton "+") ──
+// gère les zones de drop MP3/image, la recherche MusicBrainz et la soumission
 
 import gsap from "gsap";
 import { lookupTrack } from "./musicAPI.js";
 
-/**
- * Setup the add-track modal with drag-and-drop and API recognition.
- * @param {object} player — the MusicPlayer instance
- */
+// couleur dominante = couleur la plus fréquente (quantifiée) dans l'image
+function getDominantColor(imageURL) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const size = 50;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, size, size);
+      const data = ctx.getImageData(0, 0, size, size).data;
+
+      // on regroupe chaque pixel dans un bucket de 32 et on compte les occurrences
+      const buckets = {};
+      for (let i = 0; i < data.length; i += 4) {
+        const brightness = data[i] + data[i + 1] + data[i + 2];
+        if (brightness < 60 || brightness > 700) continue; // ignore noir/blanc
+        const r = Math.round(data[i] / 32) * 32;
+        const g = Math.round(data[i + 1] / 32) * 32;
+        const b = Math.round(data[i + 2] / 32) * 32;
+        const key = `${r},${g},${b}`;
+        buckets[key] = (buckets[key] || 0) + 1;
+      }
+
+      // on prend le bucket le plus fréquent
+      let maxCount = 0, dominant = null;
+      for (const [key, count] of Object.entries(buckets)) {
+        if (count > maxCount) { maxCount = count; dominant = key; }
+      }
+
+      if (!dominant) { resolve('#f5e6d0'); return; }
+
+      const [r, g, b] = dominant.split(',').map(Number);
+      resolve(`#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`);
+    };
+    img.onerror = () => resolve('#f5e6d0');
+    img.src = imageURL;
+  });
+}
+
+// initialise la modale d'ajout avec drag-and-drop + reconnaissance API
 export function setupAddTrack(player) {
   const overlay = document.getElementById('add-track-overlay');
   const panel = overlay.querySelector('.add-track-panel');
@@ -27,15 +65,15 @@ export function setupAddTrack(player) {
 
   let mp3File = null;
   let imgFile = null;
-  let apiData = null; // MusicBrainz lookup result
+  let apiData = null;
 
-  // ── Validation ──
+  // vérifie que les 3 champs sont remplis avant d'activer le bouton
   const validate = () => {
     submitBtn.disabled = !(mp3File && imgFile && inputTitle.value.trim());
     errorEl.textContent = '';
   };
 
-  // ── Dropzone helper ──
+  // helper : branche click + drag/drop sur une zone
   const setupDropzone = (zone, input, acceptType, onFile) => {
     zone.addEventListener('click', () => input.click());
 
@@ -59,7 +97,7 @@ export function setupAddTrack(player) {
     });
   };
 
-  // ── MP3 dropzone + MusicBrainz lookup ──
+  // zone MP3 : au drop on lance aussi la recherche MusicBrainz
   setupDropzone(dropMp3, inputMp3, 'audio', (file) => {
     mp3File = file;
     mp3Filename.textContent = file.name;
@@ -69,7 +107,7 @@ export function setupAddTrack(player) {
     }
     validate();
 
-    // MusicBrainz API lookup
+    // recherche auto sur MusicBrainz
     apiData = null;
     lookupStatus.textContent = 'Recherche dans MusicBrainz...';
     lookupStatus.className = 'api-lookup-status searching';
@@ -87,7 +125,7 @@ export function setupAddTrack(player) {
     });
   });
 
-  // ── Image dropzone (square validation) ──
+  // zone image : on vérifie que c'est bien une image carrée
   setupDropzone(dropImg, inputImg, 'image', (file) => {
     const img = new Image();
     img.onload = () => {
@@ -107,7 +145,7 @@ export function setupAddTrack(player) {
 
   inputTitle.addEventListener('input', validate);
 
-  // ── Open modal ──
+  // ouverture de la modale (max 1 piste custom)
   openBtn.addEventListener('click', () => {
     if (player.customTrackAdded) {
       errorEl.textContent = 'Limite atteinte : 1 morceau personnalisé maximum';
@@ -122,7 +160,7 @@ export function setupAddTrack(player) {
     );
   });
 
-  // ── Close modal ──
+  // fermeture avec animation GSAP
   const closeModal = () => {
     const tl = gsap.timeline({
       onComplete: () => {
@@ -137,13 +175,15 @@ export function setupAddTrack(player) {
   closeBtn.addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-  // ── Submit ──
-  submitBtn.addEventListener('click', () => {
+  // soumission : crée l'objet track + détecte la couleur dominante de la cover
+  submitBtn.addEventListener('click', async () => {
     if (!mp3File || !imgFile || !inputTitle.value.trim()) return;
 
     const audioURL = URL.createObjectURL(mp3File);
     const imageURL = URL.createObjectURL(imgFile);
     const title = inputTitle.value.trim();
+
+    const dominantColor = await getDominantColor(imageURL);
 
     const newTrack = {
       id: player.tracks.length + 1,
@@ -152,7 +192,7 @@ export function setupAddTrack(player) {
       img: imageURL,
       artist: apiData ? apiData.artist : title,
       album: apiData ? apiData.album : 'Custom',
-      color: '#f5e6d0',
+      color: dominantColor,
       desc: apiData ? apiData.desc : 'Morceau ajouté manuellement.'
     };
 
@@ -161,7 +201,7 @@ export function setupAddTrack(player) {
     player.customTrackAdded = true;
     openBtn.classList.add('disabled');
 
-    // Reset form
+    // reset du formulaire
     mp3File = null;
     imgFile = null;
     apiData = null;
