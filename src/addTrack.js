@@ -4,48 +4,6 @@
 import gsap from "gsap";
 import { lookupTrack } from "./musicAPI.js";
 
-// couleur dominante = couleur la plus fréquente (quantifiée) dans l'image
-function getDominantColor(imageURL) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const size = 50;
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, size, size);
-      const data = ctx.getImageData(0, 0, size, size).data;
-
-      // on regroupe chaque pixel dans un bucket de 32 et on compte les occurrences
-      const buckets = {};
-      for (let i = 0; i < data.length; i += 4) {
-        const brightness = data[i] + data[i + 1] + data[i + 2];
-        if (brightness < 60 || brightness > 700) continue; // ignore noir/blanc
-        const r = Math.round(data[i] / 32) * 32;
-        const g = Math.round(data[i + 1] / 32) * 32;
-        const b = Math.round(data[i + 2] / 32) * 32;
-        const key = `${r},${g},${b}`;
-        buckets[key] = (buckets[key] || 0) + 1;
-      }
-
-      // on prend le bucket le plus fréquent
-      let maxCount = 0, dominant = null;
-      for (const [key, count] of Object.entries(buckets)) {
-        if (count > maxCount) { maxCount = count; dominant = key; }
-      }
-
-      if (!dominant) { resolve('#f5e6d0'); return; }
-
-      const [r, g, b] = dominant.split(',').map(Number);
-      resolve(`#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`);
-    };
-    img.onerror = () => resolve('#f5e6d0');
-    img.src = imageURL;
-  });
-}
-
 // initialise la modale d'ajout avec drag-and-drop + reconnaissance API
 export function setupAddTrack(player) {
   const overlay = document.getElementById('add-track-overlay');
@@ -66,6 +24,7 @@ export function setupAddTrack(player) {
   let mp3File = null;
   let imgFile = null;
   let apiData = null;
+  let detectedColor = '#f5e6d0';
 
   // vérifie que les 3 champs sont remplis avant d'activer le bouton
   const validate = () => {
@@ -125,22 +84,81 @@ export function setupAddTrack(player) {
     });
   });
 
-  // zone image : on vérifie que c'est bien une image carrée
+  // zone image : on vérifie que c'est carré + on détecte la couleur dominante
   setupDropzone(dropImg, inputImg, 'image', (file) => {
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(img.src);
-      const ratio = img.width / img.height;
-      if (ratio < 0.95 || ratio > 1.05) {
-        errorEl.textContent = 'Seules les images carrées sont acceptées (ratio ' + ratio.toFixed(2) + ':1)';
-        return;
-      }
-      imgFile = file;
-      imgFilename.textContent = file.name;
-      dropImg.classList.add('has-file');
-      validate();
+    // FileReader lit le fichier en base64 → pas de souci CORS ni blob tainted
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      const img = new Image();
+      img.onload = () => {
+        // check ratio carré (tolérance ±5%)
+        const ratio = img.width / img.height;
+        if (ratio < 0.95 || ratio > 1.05) {
+          errorEl.textContent = 'Seules les images carrées sont acceptées (ratio ' + ratio.toFixed(2) + ':1)';
+          return;
+        }
+
+        // ── Détection de la couleur dominante ──
+        // 1) on dessine l'image sur un petit canvas pour lire ses pixels
+        const canvas = document.createElement('canvas');
+        const sz = 100;
+        canvas.width = sz;
+        canvas.height = sz;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, sz, sz);
+        const pixels = ctx.getImageData(0, 0, sz, sz).data;
+
+        // 2) on regroupe les pixels par "bucket" de couleur (arrondi à 32)
+        //    → chaque pixel tombe dans un des ~32k groupes possibles
+        //    on ignore les pixels trop sombres (noir) ou trop clairs (blanc)
+        const buckets = {};
+        for (let i = 0; i < pixels.length; i += 4) {
+          const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+          // luminosité perceptuelle (formule standard)
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          if (lum < 20 || lum > 235) continue;
+          // arrondi par bitshift : 237 → 224, 100 → 96, etc.
+          const key = `${(r >> 5) << 5},${(g >> 5) << 5},${(b >> 5) << 5}`;
+          buckets[key] = (buckets[key] || 0) + 1;
+        }
+
+        // 3) on prend le bucket avec le plus de pixels = couleur dominante
+        let maxCount = 0, bestBucket = null;
+        for (const [key, count] of Object.entries(buckets)) {
+          if (count > maxCount) { maxCount = count; bestBucket = key; }
+        }
+
+        if (bestBucket) {
+          // 4) on fait la vraie moyenne RGB de tous les pixels de ce bucket
+          //    pour avoir une couleur plus précise que le bucket arrondi
+          const [br, bg, bb] = bestBucket.split(',').map(Number);
+          let sumR = 0, sumG = 0, sumB = 0, n = 0;
+          for (let i = 0; i < pixels.length; i += 4) {
+            const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+            if (((r >> 5) << 5) === br && ((g >> 5) << 5) === bg && ((b >> 5) << 5) === bb) {
+              sumR += r; sumG += g; sumB += b; n++;
+            }
+          }
+          const avgR = Math.round(sumR / n);
+          const avgG = Math.round(sumG / n);
+          const avgB = Math.round(sumB / n);
+          // conversion RGB → hex : ex. (66, 135, 245) → "#4287f5"
+          detectedColor = '#' + ((1 << 24) + (avgR << 16) + (avgG << 8) + avgB).toString(16).slice(1);
+        } else {
+          detectedColor = '#f5e6d0'; // fallback beige si aucun pixel valide
+        }
+
+        console.log('[addTrack] couleur dominante =', detectedColor);
+
+        imgFile = file;
+        imgFilename.textContent = file.name;
+        dropImg.classList.add('has-file');
+        validate();
+      };
+      img.src = dataUrl;
     };
-    img.src = URL.createObjectURL(file);
+    reader.readAsDataURL(file);
   });
 
   inputTitle.addEventListener('input', validate);
@@ -175,15 +193,13 @@ export function setupAddTrack(player) {
   closeBtn.addEventListener('click', closeModal);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
 
-  // soumission : crée l'objet track + détecte la couleur dominante de la cover
-  submitBtn.addEventListener('click', async () => {
+  // soumission : crée l'objet track avec la couleur détectée au drop
+  submitBtn.addEventListener('click', () => {
     if (!mp3File || !imgFile || !inputTitle.value.trim()) return;
 
     const audioURL = URL.createObjectURL(mp3File);
     const imageURL = URL.createObjectURL(imgFile);
     const title = inputTitle.value.trim();
-
-    const dominantColor = await getDominantColor(imageURL);
 
     const newTrack = {
       id: player.tracks.length + 1,
@@ -192,12 +208,15 @@ export function setupAddTrack(player) {
       img: imageURL,
       artist: apiData ? apiData.artist : title,
       album: apiData ? apiData.album : 'Custom',
-      color: dominantColor,
+      color: detectedColor,
       desc: apiData ? apiData.desc : 'Morceau ajouté manuellement.'
     };
 
     player.tracks.push(newTrack);
+    // on navigue vers la nouvelle piste pour que les blobs prennent sa couleur
+    player.currentTrackIndex = player.tracks.length - 1;
     player.rebuildCarousel();
+    player.updateLavaColors();
     player.customTrackAdded = true;
     openBtn.classList.add('disabled');
 
@@ -205,6 +224,7 @@ export function setupAddTrack(player) {
     mp3File = null;
     imgFile = null;
     apiData = null;
+    detectedColor = '#f5e6d0';
     inputTitle.value = '';
     mp3Filename.textContent = '';
     imgFilename.textContent = '';

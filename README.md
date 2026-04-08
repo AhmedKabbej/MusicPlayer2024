@@ -44,6 +44,22 @@ Quand un fichier MP3 est déposé dans le modal d'ajout, le lecteur analyse auto
 
 4. **Fallback** — Si aucun résultat n'est trouvé (fichier mal nommé, morceau non répertorié), le morceau est ajouté avec les métadonnées par défaut : album "Custom", description "Morceau ajouté manuellement."
 
+### Détection de couleur dominante (Pixel Detector)
+
+Quand une image de pochette est déposée dans le formulaire, le lecteur analyse ses pixels pour en extraire la **couleur dominante**. Cette couleur est ensuite appliquée aux **lava blobs** en arrière-plan lorsqu'on navigue sur cette piste.
+
+1. **Lecture du fichier** — L'image est lue via `FileReader.readAsDataURL()` pour obtenir une data URL en base64, ce qui évite tout problème de CORS ou de canvas tainted.
+
+2. **Dessin sur canvas** — L'image est dessinée sur un canvas temporaire de 100×100 pixels, puis on récupère les données RGBA de chaque pixel via `getImageData()`.
+
+3. **Regroupement en buckets** — Chaque pixel est arrondi par pas de 32 (via bitshift `>> 5 << 5`) pour regrouper les couleurs proches dans un même "bucket". Les pixels trop sombres (noir) ou trop clairs (blanc) sont ignorés grâce à un filtre de luminosité perceptuelle.
+
+4. **Bucket dominant** — On parcourt tous les buckets et on prend celui qui contient le plus de pixels → c'est la couleur majoritaire de la pochette.
+
+5. **Moyenne précise** — Une 2e passe recalcule la vraie moyenne RGB de tous les pixels appartenant au bucket gagnant, pour obtenir une couleur plus fidèle que l'arrondi du bucket.
+
+6. **Application** — La couleur hex résultante est stockée dans `track.color`. Quand on navigue vers cette piste, `updateLavaColors()` applique cette couleur aux sphères d'arrière-plan via GSAP.
+
 ### Bien nommer son fichier
 
 Pour maximiser les chances de détection, nommez votre MP3 au format :
